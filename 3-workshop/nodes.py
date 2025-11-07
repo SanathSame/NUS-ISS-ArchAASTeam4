@@ -1,86 +1,96 @@
-from typing import Literal
+# nodes.py
+from typing import Literal, Dict, Any
 from state import State
-from agents import coordinator, participant, summarizer
+from agents.coordinator import coordinator
+from agents.participant import participant
+from agents.summarizer import summarizer
 
 
 def human_node(state: State) -> dict:
-    """
-    Human input node - gets user input and sets volley count.
-    """
+    """Prompt user for input and (re)start a volley and reset the pipeline."""
     user_input = input("\nYou: ").strip()
+    human_message = {"role": "user", "content": f"You: {user_input}"}
 
-    human_message = {
-        "role": "user",
-        "content": f"You: {user_input}"
-    }
-
-    # Copy existing messages and append the new one
     messages = state.get("messages", []).copy()
     messages.append(human_message)
 
-    return {
-        "messages": messages,
-        "volley_msg_left": 5
-    }
+    # (Re)start a volley and reset stage to the beginning of the pipeline
+    volley = int(state.get("volley_msg_left", 0))
+    if volley <= 0:
+        volley = 5
+
+    # Reset pipeline so each human turn can run resume->... again
+    return {"messages": messages, "volley_msg_left": volley, "stage_idx": 0}
 
 
 def check_exit_condition(state: State) -> Literal["summarizer", "coordinator"]:
-    """
-    Check if user typed 'exit' to end conversation.
-    """
-    messages = state.get("messages", [])
-    if messages:
-        last_message = messages[-1]
-        content = last_message.get("content", "")
-
-        if "exit" in content.lower():
-            return "summarizer"
-
+    """If user typed 'exit' or volley ended, go summarizer; else coordinator."""
+    msgs = state.get("messages", [])
+    if msgs and "exit" in msgs[-1].get("content", "").lower():
+        return "summarizer"
+    if int(state.get("volley_msg_left", 0)) <= 0:
+        return "summarizer"
     return "coordinator"
 
 
 def coordinator_routing(state: State) -> Literal["participant", "human"]:
     """
-    Route from coordinator based on volley count.
+    Continue agent loop while there’s volley; otherwise go back to human.
+    Also respect when an agent explicitly handed control back to human.
     """
-    volley_left = state.get("volley_msg_left", 0)
-
-    if volley_left > 0:
-        return "participant"
-    else:
+    if state.get("next_speaker") == "human":
         return "human"
+    return "participant" if int(state.get("volley_msg_left", 0)) > 0 else "human"
+
+
+def _merge_non_message_fields(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Preserve any non-message outputs from agents in the state."""
+    return {k: v for k, v in (result or {}).items() if k != "messages"}
 
 
 def participant_node(state: State) -> dict:
     """
-    Participant node - calls the appropriate participant and handles output.
+    Call the selected agent, print its messages, advance stage, and
+    reduce volley. If the agent says 'human' next, end the volley.
     """
-    next_speaker = state.get("next_speaker", "ah_seng")  # Default fallback
-
-    # Call participant with the selected speaker
+    next_speaker = state.get("next_speaker", "resume_parser")
     result = participant(next_speaker, state)
 
-    # Print and return messages
     if result and "messages" in result:
         messages = state.get("messages", []).copy()
         for msg in result["messages"]:
             print(msg.get("content", ""))
             messages.append(msg)
 
-        return {"messages": messages}
+        # advance stage index (no clamping)
+        old_idx = int(state.get("stage_idx", 0))
+        stage_idx = old_idx + 1
+        print(f"    [DEBUG] [PARTICIPANT] stage_idx: {old_idx} -> {stage_idx}")
+
+        # spend one volley
+        volley = max(0, int(state.get("volley_msg_left", 0)) - 1)
+
+        # If the agent finished the pipeline and handed control back to human,
+        # force volley to 0 so check_exit_condition will end with a summary.
+        if result.get("next_speaker") == "human":
+            volley = 0
+
+        # merge any extra keys from result (except messages)
+        merged = _merge_non_message_fields(result)
+
+        return {
+            "messages": messages,
+            "volley_msg_left": volley,
+            "stage_idx": stage_idx,
+            **merged,
+        }
 
     return {}
 
 
 def summarizer_node(state: State) -> dict:
-    """
-    Summarizer node - generates and displays conversation summary.
-    """
+    """Generate and print final summary."""
     print("\n=== CONVERSATION ENDING ===\n")
-
-    # Generate and print summary
-    summary = summarizer(state)
-    print(summary)
+    print(summarizer(state))
     print("\nThank you! Come back to kopitiam anytime lah!")
-
-    return {}  # Empty update to end
+    return {}
