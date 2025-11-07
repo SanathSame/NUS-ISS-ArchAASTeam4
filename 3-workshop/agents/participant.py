@@ -1,6 +1,6 @@
 from tools import singapore_time, singapore_weather, singapore_news
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from utils import debug
 import re
 
