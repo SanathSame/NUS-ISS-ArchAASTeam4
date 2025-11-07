@@ -75,11 +75,25 @@ def main():
     graph = build_graph()
     print(graph.get_graph().draw_ascii())
 
+    # Initialize a persistent state for the session
+    session_state: State = {
+        "messages": [],
+        "volley_msg_left": 0,
+        "next_agent": None,
+        "stage_idx": 0,
+        "resume_text": "",
+        "job_query": "",
+        "resume_info": {},
+        "job_listings": [],
+        "scored_jobs": [],
+        "final_pitch": "",
+    }
+
     while True:
         user_input = get_user_input()
         if not user_input:
             # User typed exit at resume/job input → run summarizer
-            summarizer_node(initial_state)
+            summarizer_node(session_state)
             break
 
         resume_text, job_query = user_input
@@ -88,41 +102,17 @@ def main():
         print(f"       Query : \n{job_query}\n")
         print("\n[INFO] Running full job connect pipeline...\n")
 
-        # If initial_state exists from previous runs, preserve messages
-        prev_messages = []
-        if 'initial_state' in locals() and 'messages' in initial_state:
-            prev_messages = initial_state['messages']
-
-        # create new state for this resume
-        initial_state = State(
-            messages=prev_messages,   # preserve messages
-            volley_msg_left=1,        # one run per resume
-            next_agent=None,
-            stage_idx=0,
-            resume_text=resume_text,
-            job_query=job_query
-        )
-
-        # initial_state = State(
-        #     messages=[],
-        #     volley_msg_left=1, # one run per resume
-        #     next_agent=None,
-        #     resume_text=resume_text,
-        #     job_query=job_query,
-        #     stage_idx=0,  # start at the first agent
-        # )
-
-    # # Get resume from file
-    # resume_text = load_resume_from_file()
-    # print("\n✅ Resume file loaded successfully.\n")
-    # Ask user for job query keywords
-    # job_query = input("Enter job search keywords separated by space (e.g. 'python angular singapore'): ").strip()
-    # if not job_query:
-    #     job_query = "software engineer singapore"
-    #     print(f"(Using default query: {job_query})")
+        # Update session_state for this resume, preserve messages
+        session_state.update({
+            "resume_text": resume_text,
+            "job_query": job_query,
+            "volley_msg_left": 1,  # reset transient
+            "next_agent": None,    # reset transient
+            "stage_idx": 0,        # reset transient
+        })
 
         try:
-            graph.invoke(initial_state, config={"recursion_limit": 100})
+            session_state = graph.invoke(session_state, config={"recursion_limit": 100})
         except KeyboardInterrupt:
             print("\n\nInterrupted. Goodbye!")
         except Exception as e:
@@ -131,8 +121,7 @@ def main():
 
         again = input("\nWould you like to process another resume? (y/n): ").strip().lower()
         if again != "y":
-            final_state = graph.invoke(initial_state, config={"recursion_limit": 100})
-            summarizer_node(final_state)    
+            summarizer_node(session_state) # No further processing → run summarizer
             break
 
 if __name__ == "__main__":
