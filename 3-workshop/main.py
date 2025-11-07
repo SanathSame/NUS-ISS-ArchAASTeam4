@@ -99,7 +99,7 @@ def main():
     initial_state = State(
         messages=[],
         volley_msg_left=8,
-        next_speaker=None,
+        next_agent=None,
         resume_text=resume_text,
         job_query=job_query,
         stage_idx=0,  # start at the first agent
