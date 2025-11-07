@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: ethics-board
+Version: 0.1.0
+Summary: An AI-powered ethics board discussion simulation
+Author-email: Team 4 <team4@example.com>
+Requires-Dist: python-dotenv
+Requires-Dist: langchain
+Requires-Dist: langchain-openai
+Requires-Dist: langgraph
+Requires-Dist: pytz
+Requires-Dist: openai

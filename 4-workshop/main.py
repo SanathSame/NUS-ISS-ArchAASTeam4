@@ -1,0 +1,82 @@
+from dotenv import load_dotenv
+from langgraph.graph import StateGraph, START, END
+
+from state import State
+from agents import coordinator
+from nodes import (
+    human_node,
+    check_exit_condition,
+    coordinator_routing,
+    participant_node,
+    summarizer_node
+)
+
+
+load_dotenv(override=True)  # Override, so it would use your local .env file
+
+
+def build_graph():
+    """
+    Build the LangGraph workflow.
+    """
+
+    builder = StateGraph(State)
+
+    builder.add_node("human", human_node)
+    builder.add_node("coordinator", coordinator)  # Use coordinator directly
+    builder.add_node("participant", participant_node)
+    builder.add_node("summarizer", summarizer_node)
+
+    # Edges
+    builder.add_edge(START, "human")
+
+    builder.add_conditional_edges(
+        "human",
+        check_exit_condition,
+        {
+            "summarizer": "summarizer",
+            "coordinator": "coordinator"
+        }
+    )
+
+    builder.add_conditional_edges(
+        "coordinator",
+        coordinator_routing,
+        {
+            "participant": "participant",
+            "human": "human"
+        }
+    )
+
+    builder.add_edge("participant", "coordinator")
+
+    builder.add_edge("summarizer", END)
+
+    return builder.compile()
+
+
+def main():
+    print("=== CAPITAL PUNISHMENT ETHICS BOARD ===")
+    print("Join the discussion on capital punishment. Type 'exit' to end.\n")
+    print("Setting: A serious ethics board meeting discussing capital punishment...")
+    print("Present are - Sarah Chen (victim's mother), Officer James Rodriguez,")
+    print("Maya Singh (human rights activist), and Lisa Thompson")
+    print("(mother of a death row inmate).\n")
+
+    graph = build_graph()
+
+    print(graph.get_graph().draw_ascii())
+
+    initial_state = State(
+        messages=[],
+        volley_msg_left=0,
+        next_speaker=None
+    )
+
+    try:
+        graph.invoke(initial_state)
+    except KeyboardInterrupt:
+        print("\n\nDiscussion interrupted. Meeting adjourned.")
+    except Exception as e:
+        print(f"\nAn error occurred: {e}")
+        print("Ending discussion...")
