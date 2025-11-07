@@ -12,52 +12,29 @@ from nodes import (
     summarizer_node,
 )
 from agents.coordinator import coordinator
+from agents.resume_parser import load_resume_from_file
 
+def get_user_input() -> tuple[str, str] | None:
+    """
+    Ask the user for a resume file path and job query.
+    Returns (resume_text, job_query), or None if user typed exit.
+    """
+    print("\n=== JOB CONNECT DEMO ===")
+    resume_path = input("Enter path to your resume file (or type 'exit' to quit): ").strip()
+    if resume_path.lower() == "exit":
+        return None
 
-# 10 realistic resume/query pairs (keep them short & tech-keyword friendly)
-RESUME_SCENARIOS = [
-    (
-        "Senior engineer, 5 years with Python, Angular, Spring Boot, SQL, AWS, Docker.",
-        "python angular spring singapore"
-    ),
-    (
-        "Backend developer, 6+ years in Java, Spring Boot, Kafka, PostgreSQL, Redis, AWS ECS.",
-        "java spring boot kafka postgres redis singapore"
-    ),
-    (
-        "Full-stack engineer with 4 years in React, Node.js, Express, MongoDB, CI/CD, Docker.",
-        "react node express mongodb docker singapore"
-    ),
-    (
-        "Data engineer, 5 years in Python, Spark, Airflow, AWS Glue, S3, Redshift, SQL.",
-        "data engineer python spark airflow redshift singapore"
-    ),
-    (
-        "DevOps engineer, 7 years in Kubernetes, Terraform, AWS, GitLab CI, Prometheus, Grafana.",
-        "devops kubernetes terraform aws gitlab ci singapore"
-    ),
-    (
-        "Frontend engineer, 3 years in Angular, RxJS, TypeScript, Tailwind, Jest, Cypress.",
-        "angular rxjs typescript jest cypress singapore"
-    ),
-    (
-        "Mobile developer, 4 years in Android (Kotlin), Jetpack, Retrofit, Firebase, CI/CD.",
-        "android kotlin jetpack retrofit firebase singapore"
-    ),
-    (
-        "QA automation engineer, 5 years with Selenium, Playwright, Java, TestNG, REST Assured.",
-        "qa automation selenium playwright java testng singapore"
-    ),
-    (
-        "ML engineer, 3 years in Python, PyTorch, Transformers, FastAPI, MLflow, AWS SageMaker.",
-        "ml engineer pytorch transformers fastapi sagemaker singapore"
-    ),
-    (
-        "Platform engineer, 6 years in Go, Kubernetes, Helm, Istio, ArgoCD, Observability.",
-        "platform engineer go kubernetes helm istio argocd singapore"
-    ),
-]
+    try:
+        resume_text = load_resume_from_file(resume_path)
+    except FileNotFoundError:
+        print(f"[Error] File '{resume_path}' not found. Try again.\n")
+        return get_user_input()  # retry
 
+    job_query = input("Enter job search keywords (or type 'exit' to quit): ").strip()
+    if job_query.lower() == "exit":
+        return None
+
+    return resume_text, job_query
 
 def build_graph():
     builder = StateGraph(State)
@@ -66,53 +43,96 @@ def build_graph():
     builder.add_node("participant", participant_node)
     builder.add_node("summarizer", summarizer_node)
 
-    builder.add_edge(START, "human")
+    builder.add_edge(START, "coordinator")
     builder.add_conditional_edges(
-        "human", check_exit_condition, {"summarizer": "summarizer", "coordinator": "coordinator"}
+        "human", 
+        check_exit_condition, 
+        {
+            "summarizer": "summarizer",     # exit flow
+            "coordinator": "coordinator"    # normal flow
+        }
     )
+    # Coordinator decides whether to go to participant or human
     builder.add_conditional_edges(
-        "coordinator", coordinator_routing, {"participant": "participant", "human": "human"}
+        "coordinator", 
+        coordinator_routing, 
+        {
+            "participant": "participant",   # next pipeline step
+            "human": END,                # pipeline completed, prompt user again
+            "summarizer": "summarizer",     # exit
+        }
     )
+    # After participant finishes one step, go back to coordinator
     builder.add_edge("participant", "coordinator")
+    # Summarizer ends the flow
     builder.add_edge("summarizer", END)
     return builder.compile()
 
 
 def main():
     load_dotenv(override=True)
-    print("=== SINGAPORE JOB SEARCH DEMO ===")
-    print("Type 'exit' to end.\n")
 
     graph = build_graph()
     print(graph.get_graph().draw_ascii())
 
-    # Pick a scenario at random (set PY_DEMO_SEED for reproducibility if needed)
-    seed_env = None  # change to an int or read from env if you want deterministic runs
-    if seed_env is not None:
-        random.seed(seed_env)
+    while True:
+        user_input = get_user_input()
+        if not user_input:
+            # User typed exit at resume/job input → run summarizer
+            summarizer_node(initial_state)
+            break
 
-    resume_text, job_query = random.choice(RESUME_SCENARIOS)
-    print("\n[DEMO] Using scenario:")
-    print(f"       Resume: {resume_text}")
-    print(f"       Query : {job_query}\n")
+        resume_text, job_query = user_input
+        print(f"\n[INPUT] Resume and job query ready.")
+        print(f"       Resume: \n{resume_text}")
+        print(f"       Query : \n{job_query}\n")
+        print("\n[INFO] Running full job connect pipeline...\n")
 
-    initial_state = State(
-        messages=[],
-        volley_msg_left=8,
-        next_agent=None,
-        resume_text=resume_text,
-        job_query=job_query,
-        stage_idx=0,  # start at the first agent
-    )
+        # If initial_state exists from previous runs, preserve messages
+        prev_messages = []
+        if 'initial_state' in locals() and 'messages' in initial_state:
+            prev_messages = initial_state['messages']
 
-    try:
-        graph.invoke(initial_state, config={"recursion_limit": 100})
-    except KeyboardInterrupt:
-        print("\n\nConversation interrupted. Goodbye!")
-    except Exception as e:
-        print(f"\nAn error occurred: {e}")
-        print("Ending conversation...")
+        # create new state for this resume
+        initial_state = State(
+            messages=prev_messages,   # preserve messages
+            volley_msg_left=1,        # one run per resume
+            next_agent=None,
+            stage_idx=0,
+            resume_text=resume_text,
+            job_query=job_query
+        )
 
+        # initial_state = State(
+        #     messages=[],
+        #     volley_msg_left=1, # one run per resume
+        #     next_agent=None,
+        #     resume_text=resume_text,
+        #     job_query=job_query,
+        #     stage_idx=0,  # start at the first agent
+        # )
+
+    # # Get resume from file
+    # resume_text = load_resume_from_file()
+    # print("\n✅ Resume file loaded successfully.\n")
+    # Ask user for job query keywords
+    # job_query = input("Enter job search keywords separated by space (e.g. 'python angular singapore'): ").strip()
+    # if not job_query:
+    #     job_query = "software engineer singapore"
+    #     print(f"(Using default query: {job_query})")
+
+        try:
+            graph.invoke(initial_state, config={"recursion_limit": 100})
+        except KeyboardInterrupt:
+            print("\n\nInterrupted. Goodbye!")
+        except Exception as e:
+            print(f"\nAn error occurred: {e}")
+            print("Ending conversation...")
+
+        again = input("\nWould you like to process another resume? (y/n): ").strip().lower()
+        if again != "y":
+            summarizer_node(initial_state) # No further processing → run summarizer
+            break
 
 if __name__ == "__main__":
     main()

@@ -34,13 +34,38 @@ def check_exit_condition(state: State) -> Literal["summarizer", "coordinator"]:
 
 
 def coordinator_routing(state: State) -> Literal["participant", "human"]:
+    # """
+    # Continue agent loop while there’s volley; otherwise go back to human.
+    # Also respect when an agent explicitly handed control back to human.
+    # """
+    # if state.get("next_agent") == "human":
+    #     return "human"
+    # return "participant" if int(state.get("volley_msg_left", 0)) > 0 else "human"
+
     """
-    Continue agent loop while there’s volley; otherwise go back to human.
-    Also respect when an agent explicitly handed control back to human.
+    Decide whether to continue the participant pipeline or go back to human.
     """
-    if state.get("next_agent") == "human":
+    # After resume_parser → job_search → relevance_scorer → pitch_generator
+    # the participant sets `next_agent` accordingly.
+
+    # next_agent = getattr(state, "next_agent", None)
+    next_agent = state.get("next_agent")
+    print(f"[DEBUG] Coordinator routing: next_agent={next_agent}")
+
+    # If the pipeline has another participant step, continue
+    if next_agent in ["resume_parser", "job_search", "relevance_scorer", "pitch_generator"]:
+        return "participant"
+
+    # If the pipeline finished its last step (pitch_generator done), return to human
+    if next_agent == "human" or next_agent is None:
         return "human"
-    return "participant" if int(state.get("volley_msg_left", 0)) > 0 else "human"
+
+    # Only return summarizer if explicitly told (like user exit)
+    if next_agent == "summarizer":
+        return "summarizer"
+
+    # Default fallback
+    return "human"
 
 
 def _merge_non_message_fields(result: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,6 +79,16 @@ def participant_node(state: State) -> dict:
     reduce volley. If the agent says 'human' next, end the volley.
     """
     next_agent = state.get("next_agent", "resume_parser")
+
+    # If pipeline finished, just return state
+    if next_agent is None:
+        return state
+
+    # # If pipeline finished and next_agent is human, call human_node directly
+    # if next_agent == "human":
+    #     return human_node(state)
+
+    # Otherwise, delegate to the participant pipeline
     result = participant(next_agent, state)
 
     if result and "messages" in result:

@@ -34,10 +34,12 @@ def participant(agent_name: str, state: Dict[str, Any]) -> Dict[str, Any]:
     if agent_name == "pitch_generator":
         debug("[PITCH] Generated pitch.")
         out = pitch_generator(state)
-        out["next_agent"] = "human"  # pipeline complete
+        # out["next_agent"] = "human"  # pipeline complete
+        out["next_agent"] = None  # pipeline complete
         return out
 
     return {
         "messages": [{"role": "assistant", "content": f"(Unknown agent: {agent_name})"}],
-        "next_agent": "human",
+        "next_agent": None,
+        # "next_agent": "human",
     }

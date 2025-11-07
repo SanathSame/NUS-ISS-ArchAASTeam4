@@ -2,6 +2,11 @@
 import re
 from typing import Dict, Any
 
+def load_resume_from_file(path: str) -> str:
+    """Read and return plain text content from a resume file."""
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().strip()
+
 def resume_parser(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Parse resume inputted by user.
