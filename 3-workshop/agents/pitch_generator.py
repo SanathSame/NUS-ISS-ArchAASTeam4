@@ -17,6 +17,9 @@ def pitch_generator(state: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     return {
-        "messages": [{"role": "assistant", "content": "Generated a tailored pitch for the top job."}],
+        "messages": [
+            {"role": "assistant", "content": "Generated a tailored pitch for the top job."},
+            {"role": "assistant", "content": f"=== PITCH ===\n{pitch}"},
+        ],
         "final_pitch": pitch,
     }
