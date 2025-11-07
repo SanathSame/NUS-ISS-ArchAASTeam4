@@ -131,7 +131,8 @@ def main():
 
         again = input("\nWould you like to process another resume? (y/n): ").strip().lower()
         if again != "y":
-            summarizer_node(initial_state) # No further processing → run summarizer
+            final_state = graph.invoke(initial_state, config={"recursion_limit": 100})
+            summarizer_node(final_state)    
             break
 
 if __name__ == "__main__":

@@ -5,13 +5,21 @@ def summarizer(state) -> str:
     """
     Generate summary when conversation ends (same return format as sample).
     """
+
     messages = state.get("messages", [])
+    print("[DEBUG] Summarizer received messages:")
+    for i, m in enumerate(messages):
+        print(f"  [{i}] {m}")
     if not messages:
+        print("[DEBUG] No messages to summarize.")
         return "No conversation to summarize."
 
     conversation_text = "\n".join(m.get("content", "") for m in messages if isinstance(m, dict))
+    print("[DEBUG] Summarizer conversation_text:")
+    print(conversation_text)
 
     if not conversation_text.strip():
+        print("[DEBUG] No conversation content to summarize.")
         return "No conversation content to summarize."
 
     system_prompt = """You are the observer of a Job Search multi-agent run.
@@ -31,7 +39,7 @@ Keep it short, structured, and readable.
 Please summarize the outcome for the end-of-run report."""
 
     try:
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=1)
         response = llm.invoke([SystemMessage(content=system_prompt),
                                HumanMessage(content=user_prompt)])
         text = response.content if isinstance(response.content, str) else str(response.content)
