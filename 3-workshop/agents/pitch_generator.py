@@ -2,6 +2,16 @@
 from typing import Dict, Any
 
 def pitch_generator(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate a cover letter using LLM when prompted by user.
+
+    Args:
+        state: Resume info parsed from user, job relevance, best job ranked.
+
+    Returns:
+        Formatted cover letter string
+    """  
+
     info = state.get("resume_info") or {}
     top = (state.get("scored_jobs") or [{}])
     best = top[0].get("job") if top else None

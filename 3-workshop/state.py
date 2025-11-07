@@ -1,10 +1,10 @@
-# state.py — example with TypedDict
+# state.py — with TypedDict
 from typing import TypedDict, List, Dict, Any, Optional
 
 class State(TypedDict, total=False):
     messages: List[Dict[str, Any]]
     volley_msg_left: int
-    next_speaker: Optional[str]
+    next_agent: Optional[str]
     stage_idx: int           
     resume_text: str
     job_query: str

@@ -45,10 +45,10 @@ Please summarize the outcome for the end-of-run report."""
             top_line = f"\n\nTop match: {j.get('title','(N/A)')} @ {j.get('company','(N/A)')} ({top.get('score','?')}/100)"
         pitch_line = f"\n\n=== SAMPLE PITCH ===\n{state.get('final_pitch','')}" if state.get("final_pitch") else ""
 
-        return f"=== KOPITIAM CONVERSATION SUMMARY ===\n\n{text.strip()}{top_line}{pitch_line}"
+        return f"=== JOB CONNECT SUMMARY ===\n\n{text.strip()}{top_line}{pitch_line}"
 
     except Exception:
         # Fallback similar to your sample style
-        return (f"=== KOPITIAM CONVERSATION SUMMARY ===\n\n"
+        return (f"=== JOB CONNECT SUMMARY ===\n\n"
                 f"Total messages: {len(messages)}\n\n"
                 f"Unable to generate detailed summary at this time.")

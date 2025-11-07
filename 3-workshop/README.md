@@ -1,4 +1,4 @@
-# kopitiam
+# job-connect
 
 This is a simple project to learn LangGraph.
 

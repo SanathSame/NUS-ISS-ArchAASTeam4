@@ -3,6 +3,10 @@ import re
 from typing import Dict, Any
 
 def resume_parser(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Parse resume inputted by user.
+    """
+
     text = (state.get("resume_text") or "").strip()
     info = {
         "name": None,

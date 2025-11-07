@@ -38,7 +38,7 @@ def coordinator_routing(state: State) -> Literal["participant", "human"]:
     Continue agent loop while there’s volley; otherwise go back to human.
     Also respect when an agent explicitly handed control back to human.
     """
-    if state.get("next_speaker") == "human":
+    if state.get("next_agent") == "human":
         return "human"
     return "participant" if int(state.get("volley_msg_left", 0)) > 0 else "human"
 
@@ -53,8 +53,8 @@ def participant_node(state: State) -> dict:
     Call the selected agent, print its messages, advance stage, and
     reduce volley. If the agent says 'human' next, end the volley.
     """
-    next_speaker = state.get("next_speaker", "resume_parser")
-    result = participant(next_speaker, state)
+    next_agent = state.get("next_agent", "resume_parser")
+    result = participant(next_agent, state)
 
     if result and "messages" in result:
         messages = state.get("messages", []).copy()
@@ -72,7 +72,7 @@ def participant_node(state: State) -> dict:
 
         # If the agent finished the pipeline and handed control back to human,
         # force volley to 0 so check_exit_condition will end with a summary.
-        if result.get("next_speaker") == "human":
+        if result.get("next_agent") == "human":
             volley = 0
 
         # merge any extra keys from result (except messages)
@@ -90,7 +90,7 @@ def participant_node(state: State) -> dict:
 
 def summarizer_node(state: State) -> dict:
     """Generate and print final summary."""
-    print("\n=== CONVERSATION ENDING ===\n")
+    print("\n=== ENDING ===\n")
     print(summarizer(state))
-    print("\nThank you! Come back to kopitiam anytime lah!")
+    print("\nThank you!")
     return {}
